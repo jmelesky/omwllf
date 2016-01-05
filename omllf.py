@@ -42,7 +42,7 @@ def readRecords(filename):
 
 
 def getRecords(filename, rectype):
-    return [ r for r in readRecords(filename) if r['type'] == rectype ]
+    return ( r for r in readRecords(filename) if r['type'] == rectype )
 
 
 def ppSubRecord(sr):
@@ -61,3 +61,4 @@ if __name__ == '__main__':
 
     for rec in getRecords(filename, 'LEVI'):
         ppRecord(rec)
+
