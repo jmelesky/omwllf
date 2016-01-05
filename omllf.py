@@ -18,24 +18,32 @@ def readSubRecord(ba):
     sr['data'] = ba[8:endbyte]
     return (sr, ba[endbyte:])
 
+def readRecords(filename):
+    fh = open(filename, 'rb')
+    while True:
+        headerba = fh.read(16)
+        if headerba is None or len(headerba) < 16:
+            return None
 
-def readRecord(fh):
-    record = {}
+        record = {}
+        header = readHeader(headerba)
+        record['type'] = header['type']
+        record['length'] = header['length']
+        record['subrecords'] = []
 
-    header = readHeader(fh.read(16))
+        remains = fh.read(header['length'])
 
-    remains = fh.read(header['length'])
+        while len(remains) > 0:
+            (subrecord, restofbytes) = readSubRecord(remains)
+            record['subrecords'].append(subrecord)
+            remains = restofbytes
 
-    record['type'] = header['type']
-    record['length'] = header['length']
-    record['subrecords'] = []
+        yield record
 
-    while len(remains) > 0:
-        (subrecord, restofbytes) = readSubRecord(remains)
-        record['subrecords'].append(subrecord)
-        remains = restofbytes
 
-    return record
+def getRecords(filename, rectype):
+    return [ r for r in readRecords(filename) if r['type'] == rectype ]
+
 
 def ppSubRecord(sr):
     print("  %s, length %d" % (sr['type'], sr['length']))
@@ -51,6 +59,5 @@ def ppRecord(rec):
 if __name__ == '__main__':
     filename = argv[1]
 
-    fh = open(filename, 'rb')
-    
-    ppRecord(readRecord(fh))
+    for rec in getRecords(filename, 'LEVI'):
+        ppRecord(rec)
