@@ -3,6 +3,28 @@
 from sys import argv
 
 
+def parseString(ba):
+    i = ba.find(0)
+    return ba[:i].decode()
+
+def parseNum(ba):
+    return int.from_bytes(ba, 'little')
+
+def parseLEVC(rec):
+    levrec = {}
+
+    levrec['name'] = parseString(rec['subrecords'][0])
+    calcfrom = parseInt(rec['subrecords'][1])
+    if calcfrom == 1:
+        levrec['calcfrom'] = 'all'
+    else:
+        levrec['calcfrom'] = 'each'
+
+    return levrec
+
+
+def pullSubs(rec, subtype):
+    return [ s for s in rec['subrecords'] if s['type'] == subtype ]
 
 def readHeader(ba):
     header = {}
@@ -46,7 +68,12 @@ def getRecords(filename, rectype):
 
 
 def ppSubRecord(sr):
-    print("  %s, length %d" % (sr['type'], sr['length']))
+    if sr['type'] in ['NAME', 'INAM', 'CNAM']:
+        print("  %s, length %d, value '%s'" % (sr['type'], sr['length'], parseString(sr['data'])))
+    elif sr['type'] in ['DATA', 'NNAM', 'INDX', 'INTV']:
+        print("  %s, length %d, value '%s'" % (sr['type'], sr['length'], parseNum(sr['data'])))
+    else:
+        print("  %s, length %d" % (sr['type'], sr['length']))
 
 def ppRecord(rec):
     print("%s, length %d" % (rec['type'], rec['length']))
