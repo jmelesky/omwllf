@@ -10,15 +10,24 @@ def parseString(ba):
 def parseNum(ba):
     return int.from_bytes(ba, 'little')
 
-def parseLEVC(rec):
+def parseLEV(rec):
     levrec = {}
+    sr = rec['subrecords']
 
-    levrec['name'] = parseString(rec['subrecords'][0])
-    calcfrom = parseInt(rec['subrecords'][1])
-    if calcfrom == 1:
-        levrec['calcfrom'] = 'all'
-    else:
-        levrec['calcfrom'] = 'each'
+    levrec['type'] = rec['type']
+    levrec['name'] = parseString(sr[0]['data'])
+    levrec['calcfrom'] = parseNum(sr[1]['data'])
+    levrec['chancenone'] = parseNum(sr[2]['data'])
+
+    listcount = parseNum(sr[3]['data'])
+    listitems = []
+
+    for i in range(0,listcount*2,2):
+        itemid = parseString(sr[4+i]['data'])
+        itemlvl = parseNum(sr[5+i]['data'])
+        listitems.append((itemid, itemlvl))
+
+    levrec['items'] = listitems
 
     return levrec
 
@@ -81,11 +90,26 @@ def ppRecord(rec):
         ppSubRecord(sr)
 
     
+def ppLEV(rec):
+    if rec['type'] == 'LEVC':
+        print("Creature list '%s':" % (rec['name']))
+    else:
+        print("Item list '%s':" % (rec['name']))
+
+    print("flags: %d, chance of none: %d" % (rec['calcfrom'], rec['chancenone']))
+
+    for (lid, lvl) in rec['items']:
+        print("  %2d - %s" % (lvl, lid))
+
 
 
 if __name__ == '__main__':
-    filename = argv[1]
+#    for rrec in getRecords(argv[1], 'LEVI'):
+#        ppRecord(rrec)
 
-    for rec in getRecords(filename, 'LEVI'):
-        ppRecord(rec)
+    for filename in argv[1:]:
+        for rrec in getRecords(filename, 'LEVI'):
+            ppLEV(parseLEV(rrec))
+        for rrec in getRecords(filename, 'LEVC'):
+            ppLEV(parseLEV(rrec))
 
