@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 from sys import argv
-
+from os.path import basename
+from struct import unpack
 
 def parseString(ba):
     i = ba.find(0)
@@ -10,7 +11,10 @@ def parseString(ba):
 def parseNum(ba):
     return int.from_bytes(ba, 'little')
 
-def parseLEV(rec):
+def parseFloat(ba):
+    return unpack('f', ba)[0]
+
+def parseLEV(f, rec):
     levrec = {}
     sr = rec['subrecords']
 
@@ -18,6 +22,7 @@ def parseLEV(rec):
     levrec['name'] = parseString(sr[0]['data'])
     levrec['calcfrom'] = parseNum(sr[1]['data'])
     levrec['chancenone'] = parseNum(sr[2]['data'])
+    levrec['file'] = basename(f)
 
     listcount = parseNum(sr[3]['data'])
     listitems = []
@@ -31,6 +36,23 @@ def parseLEV(rec):
 
     return levrec
 
+def parseTES3(rec):
+    tesrec = {}
+    sr = rec['subrecords']
+    tesrec['version'] = parseFloat(sr[0]['data'][0:4])
+    tesrec['filetype'] = parseNum(sr[0]['data'][4:8])
+    tesrec['author'] = parseString(sr[0]['data'][8:40])
+    tesrec['desc'] = parseString(sr[0]['data'][40:296])
+    tesrec['numrecords'] = parseNum(sr[0]['data'][296:300])
+
+    masters = []
+    for i in range(1, len(sr), 2):
+        mastfile = parseString(sr[i]['data'])
+        mastsize = parseNum(sr[i+1]['data'])
+        masters.append((mastfile, mastsize))
+
+    tesrec['masters'] = masters
+    return tesrec
 
 def pullSubs(rec, subtype):
     return [ s for s in rec['subrecords'] if s['type'] == subtype ]
@@ -92,7 +114,7 @@ def ppRecord(rec):
     
 def ppLEV(rec):
     if rec['type'] == 'LEVC':
-        print("Creature list '%s':" % (rec['name']))
+        print("Creature list '%s' from '%s':" % (rec['name'], rec['file']))
     else:
         print("Item list '%s':" % (rec['name']))
 
@@ -101,6 +123,15 @@ def ppLEV(rec):
     for (lvl, lid) in rec['items']:
         print("  %2d - %s" % (lvl, lid))
 
+def ppTES3(rec):
+    print("TES3 record, type %d, version %f" % (rec['filetype'], rec['version']))
+    print("author: %s" % rec['author'])
+    print("description: %s" % rec['desc'])
+
+    for (mfile, msize) in rec['masters']:
+        print("  master %s, size %d" % (mfile, msize))
+
+    print()
 
 
 def mergeableLists(alllists):
@@ -131,6 +162,10 @@ def mergeLists(lls):
     allItems = []
     for l in lls:
         allItems += l['items']
+
+    newLev['files'] = [ x['file'] for x in lls ]
+    newLev['file'] = ', '.join(newLev['files'])
+
 
     # This ends up being a bit tricky, but it prevents us
     # from overloading lists with the same stuff.
@@ -179,11 +214,26 @@ def writeList():
 
 
 if __name__ == '__main__':
-    for t in ['LEVC', 'LEVI']:
-        ilist = []
-        for filename in argv[1:]:
-            ilist += [ parseLEV(x) for x in getRecords(filename, t) ]
+    levc = []
+    levi = []
 
-        for rec in mergeAllLists(ilist):
-            ppLEV(rec)
+    ilist = []
+    for f in argv[1:]:
+        ilist += [ parseLEV(f, x) for x in getRecords(f, 'LEVC') ]
+
+    levc = mergeAllLists(ilist)
+
+    ilist = []
+    for f in argv[1:]:
+        ilist += [ parseLEV(f, x) for x in getRecords(f, 'LEVI') ]
+
+    levi = mergeAllLists(ilist)
+
+    modauthor = 'OpenMW Leveled List Fixer'
+    pluginlist = []
+    for x in levi + levc:
+        pluginlist += x['files']
+    plugins = set(pluginlist)
+    moddesc = "Merged leveled lists from: %s" % ', '.join(plugins)
+
 
