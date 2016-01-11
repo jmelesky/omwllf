@@ -25,7 +25,7 @@ def parseLEV(rec):
     for i in range(0,listcount*2,2):
         itemid = parseString(sr[4+i]['data'])
         itemlvl = parseNum(sr[5+i]['data'])
-        listitems.append((itemid, itemlvl))
+        listitems.append((itemlvl, itemid))
 
     levrec['items'] = listitems
 
@@ -98,18 +98,92 @@ def ppLEV(rec):
 
     print("flags: %d, chance of none: %d" % (rec['calcfrom'], rec['chancenone']))
 
-    for (lid, lvl) in rec['items']:
+    for (lvl, lid) in rec['items']:
         print("  %2d - %s" % (lvl, lid))
 
 
 
-if __name__ == '__main__':
-#    for rrec in getRecords(argv[1], 'LEVI'):
-#        ppRecord(rrec)
+def mergeableLists(alllists):
+    candidates = {}
+    for l in alllists:
+        lid = l['name']
+        if lid in candidates:
+            candidates[lid].append(l)
+        else:
+            candidates[lid] = [l]
 
-    for filename in argv[1:]:
-        for rrec in getRecords(filename, 'LEVI'):
-            ppLEV(parseLEV(rrec))
-        for rrec in getRecords(filename, 'LEVC'):
-            ppLEV(parseLEV(rrec))
+    mergeables = {}
+    for k in candidates:
+        if len(candidates[k]) > 1:
+            mergeables[k] = candidates[k]
+
+    return mergeables
+
+
+def mergeLists(lls):
+    # last one gets priority for list-level attributes
+    last = lls[-1]
+    newLev = { 'type': last['type'],
+               'name': last['name'],
+               'calcfrom': last['calcfrom'],
+               'chancenone': last['chancenone'] }
+
+    allItems = []
+    for l in lls:
+        allItems += l['items']
+
+    # This ends up being a bit tricky, but it prevents us
+    # from overloading lists with the same stuff.
+    #
+    # This is needed, because the original leveled lists
+    # contain multiple entries for some creatures/items, and
+    # that gets reproduced in many plugins. 
+    #
+    # If we just added and sorted, then the more plugins you
+    # have, the less often you'd see plugin content. This
+    # method prevents the core game content from overwhelming
+    # plugin contents.
+
+    allUniques = [ x for x in set(allItems) ]
+    allUniques.sort()
+
+    newList = []
+
+    for i in allUniques:
+        newCount = max([ x['items'].count(i) for x in lls ])
+        newList += [i] * newCount
+
+    newLev['items'] = newList
+
+    return newLev
+
+
+def mergeAllLists(alllists):
+    mergeables = mergeableLists(alllists)
+
+    merged = []
+
+    for k in mergeables:
+        merged.append(mergeLists(mergeables[k]))
+
+    return merged
+
+
+def writeHeader():
+    pass
+
+
+def writeList():
+    pass
+
+
+
+if __name__ == '__main__':
+    for t in ['LEVC', 'LEVI']:
+        ilist = []
+        for filename in argv[1:]:
+            ilist += [ parseLEV(x) for x in getRecords(filename, t) ]
+
+        for rec in mergeAllLists(ilist):
+            ppLEV(rec)
 
