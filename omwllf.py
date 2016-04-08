@@ -2,7 +2,7 @@
 
 from sys import argv
 from os.path import basename
-from struct import unpack
+from struct import pack_into, unpack
 
 def parseString(ba):
     i = ba.find(0)
@@ -204,8 +204,13 @@ def mergeAllLists(alllists):
     return merged
 
 
-def writeHeader():
-    pass
+def writeTES3():
+    header = bytearray(16)
+    header[0:4] = b'TES3'
+
+    hedr = bytearray(308)
+    hedr[0:4] = b'HEDR'
+
 
 
 def writeList():
