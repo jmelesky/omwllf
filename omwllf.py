@@ -14,6 +14,20 @@ def parseNum(ba):
 def parseFloat(ba):
     return unpack('f', ba)[0]
 
+
+class ESRecord():
+    pass
+
+class ESSubRecord():
+    pass
+
+class LEV(ESRecord):
+    pass
+
+class TES3(ESRecord):
+    pass
+
+
 def parseLEV(f, rec):
     levrec = {}
     sr = rec['subrecords']
@@ -237,6 +251,7 @@ if __name__ == '__main__':
     modauthor = 'OpenMW Leveled List Fixer'
     pluginlist = []
     for x in levi + levc:
+        ppLEV(x)
         pluginlist += x['files']
     plugins = set(pluginlist)
     moddesc = "Merged leveled lists from: %s" % ', '.join(plugins)
