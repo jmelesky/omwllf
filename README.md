@@ -5,9 +5,9 @@ OpenMW leveled list fixer
 
 Realistically, this is what I'd like this tool to do. It's not there yet.
 
-1. Auto-detect the location of the `openmw.cfg` and `launcher.cfg` (based on the [Paths](https://wiki.openmw.org/index.php?title=Paths) docs). Allow a different path to be assigned via command-line argument.
+1. Auto-detect the location of the `openmw.cfg` (based on the [Paths](https://wiki.openmw.org/index.php?title=Paths) docs). Allow a different path to be assigned via command-line argument.
 1. Read the `openmw.cfg` and pull all `data` lines defining data and mod directories.
-1. Read the `launcher.cfg` and pull all `.esm`, `.esp`, and `.omwaddon` files for `currentprofile`.
+1. Pull all `content` lines for enabled `.esm`, `.esp`, and `.omwaddon` files.
 1. Process all the identified files, pulling out all leveled lists.
 1. Generate a new `.omwaddon` with intelligently-merged leveled lists. Description of the mod should include all the mods with lists that got merged.
 1. Output:
