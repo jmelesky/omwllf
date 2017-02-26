@@ -37,3 +37,11 @@ Open the Launcher, drag the new module to the bottom (it should be loaded last),
 
 Finally, start OpenMW with your new, merged leveled lists.
 
+## Thanks
+
+  * Resources for understanding MW file formats:
+    * http://www.mwmythicmods.com/argent/tech/tute.html
+    * http://www.mwmythicmods.com/tutorials/MorrowindESPFormat.html
+  * The much-more-fully-functioning tool for classic TES3:
+    * https://github.com/john-moonsugar/tes3cmd
+
