@@ -34,15 +34,20 @@ def parseLEV(f, rec):
     levrec['chancenone'] = parseNum(sr[2]['data'])
     levrec['file'] = os.path.basename(f)
 
-    listcount = parseNum(sr[3]['data'])
-    listitems = []
+    # Apparently, you can have LEV records that end before
+    # the INDX subrecord. Found those in Tamriel_Data.esm
+    if len(sr) > 3:
+        listcount = parseNum(sr[3]['data'])
+        listitems = []
 
-    for i in range(0,listcount*2,2):
-        itemid = parseString(sr[4+i]['data'])
-        itemlvl = parseNum(sr[5+i]['data'])
-        listitems.append((itemlvl, itemid))
+        for i in range(0,listcount*2,2):
+            itemid = parseString(sr[4+i]['data'])
+            itemlvl = parseNum(sr[5+i]['data'])
+            listitems.append((itemlvl, itemid))
 
-    levrec['items'] = listitems
+        levrec['items'] = listitems
+    else:
+        levrec['items'] = []
 
     return levrec
 
@@ -126,7 +131,7 @@ def ppLEV(rec):
     if rec['type'] == 'LEVC':
         print("Creature list '%s' from '%s':" % (rec['name'], rec['file']))
     else:
-        print("Item list '%s':" % (rec['name']))
+        print("Item list '%s' from '%s':" % (rec['name'], rec['file']))
 
     print("flags: %d, chance of none: %d" % (rec['calcfrom'], rec['chancenone']))
 
