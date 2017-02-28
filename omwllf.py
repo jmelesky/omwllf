@@ -1,8 +1,18 @@
 #!/usr/bin/env python3
 
-from sys import argv
-from os.path import basename
 from struct import pack_into, unpack
+import os.path
+import argparse
+import sys
+import re
+
+
+configFilename = 'openmw.cfg'
+configPaths = { 'linux': '~/.config/openmw',
+                'freebsd': '~/.config/openmw',
+                'darwin': '~/Library/Preferences/openmw',
+                'win32': '~/Documents/my games/openmw' }
+
 
 def parseString(ba):
     i = ba.find(0)
@@ -14,20 +24,6 @@ def parseNum(ba):
 def parseFloat(ba):
     return unpack('f', ba)[0]
 
-
-class ESRecord():
-    pass
-
-class ESSubRecord():
-    pass
-
-class LEV(ESRecord):
-    pass
-
-class TES3(ESRecord):
-    pass
-
-
 def parseLEV(f, rec):
     levrec = {}
     sr = rec['subrecords']
@@ -36,7 +32,7 @@ def parseLEV(f, rec):
     levrec['name'] = parseString(sr[0]['data'])
     levrec['calcfrom'] = parseNum(sr[1]['data'])
     levrec['chancenone'] = parseNum(sr[2]['data'])
-    levrec['file'] = basename(f)
+    levrec['file'] = os.path.basename(f)
 
     listcount = parseNum(sr[3]['data'])
     listitems = []
@@ -232,18 +228,52 @@ def writeList():
 
 
 
-if __name__ == '__main__':
-    levc = []
-    levi = []
+
+def main(cfg):
+    # first, open the file and pull all 'data' and 'content' lines, in order
+
+    data_dirs = []
+    mods = []
+    with open(cfg, 'r') as f:
+        for l in f.readlines():
+            # match of form "blah=blahblah"
+            m = re.search(r'^(.*)=(.*)$', l)
+            if m:
+                varname = m.group(1).strip()
+                # get rid of not only whitespace, but also surrounding quotes
+                varvalue = m.group(2).strip().strip('\'"')
+                if varname == 'data':
+                    data_dirs.append(varvalue)
+                elif varname == 'content':
+                    mods.append(varvalue)
+
+    # we've got the basenames of the mods, but not the full paths
+    # and we have to search through the data_dirs to find them
+    fp_mods = []
+    for m in mods:
+        for p in data_dirs:
+            full_path = os.path.join(p, m)
+            if os.path.exists(full_path):
+                fp_mods.append(full_path)
+                break
+
+    print("Config file parsed...")
+
+    # okay, now we have the full list of esp, esm, and omwaddon
+    # files, so let's read them and generate some merged lists
+
+    levc = [] # creature lists
+    levi = [] # item lists
 
     ilist = []
-    for f in argv[1:]:
+    for f in fp_mods:
+        print("Pulling creature lists from '%s'" % f)
         ilist += [ parseLEV(f, x) for x in getRecords(f, 'LEVC') ]
 
     levc = mergeAllLists(ilist)
 
     ilist = []
-    for f in argv[1:]:
+    for f in fp_mods:
         ilist += [ parseLEV(f, x) for x in getRecords(f, 'LEVI') ]
 
     levi = mergeAllLists(ilist)
@@ -255,5 +285,38 @@ if __name__ == '__main__':
         pluginlist += x['files']
     plugins = set(pluginlist)
     moddesc = "Merged leveled lists from: %s" % ', '.join(plugins)
+
+
+
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('-c', '--conffile', type = str, default = None,
+                        action = 'store', required = False,
+                        help = 'Conf file to use. Optional. By default, attempts to use the default conf file location.')
+
+
+    p = parser.parse_args()
+
+    confFile = ''
+    if p.conffile:
+        confFile = p.conffile
+    else:
+        p = sys.platform
+        if p in configPaths:
+            baseDir = os.path.expanduser(configPaths[p])
+            confFile = os.path.join(baseDir, configFilename)
+        else:
+            print("Sorry, I don't recognize the platform '%s'. You can try specifying the conf file using the '-c' flag." % p)
+            sys.exit(1)
+
+    if not os.path.exists(confFile):
+        print("Sorry, the conf file '%s' doesn't seem to exist." % confFile)
+        sys.exit(1)
+
+    main(confFile)
+
 
 
