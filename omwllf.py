@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from struct import pack_into, unpack
+from struct import pack, unpack
 import os.path
 import argparse
 import sys
@@ -13,6 +13,22 @@ configPaths = { 'linux': '~/.config/openmw',
                 'darwin': '~/Library/Preferences/openmw',
                 'win32': '~/Documents/my games/openmw' }
 
+def packLong(i):
+    # little-endian, "standard" 4-bytes (old 32-bit systems)
+    return pack('<l', i)
+
+def packShort(s):
+    return pack('<b', s)
+
+def packInt(i):
+    return pack('<h', i)
+
+def packFloat(f):
+    return pack('<f', f)
+
+def packString(s):
+    # make sure to null-terminate
+    return bytes(s, 'ascii') + bytes(1)
 
 def parseString(ba):
     i = ba.find(0)
@@ -113,6 +129,43 @@ def getRecords(filename, rectype):
     return ( r for r in readRecords(filename) if r['type'] == rectype )
 
 
+def packStringSubRecord(sr):
+    t = packString(sr['type'])
+    if sr['type'] in ['NAME', 'INAM', 'CNAM']:
+        l = packLong(len(sr['data']))
+        return t + l + packString(sr['data'])
+    else:
+        print("Passed a non-string subrecord. I'm confused.")
+        ppSubRecord(sr)
+        sys.exit(0)
+
+
+def packLEV(rec):
+    start_bs = b''
+    id_bs = b''
+    if rec['type'] == 'LEVC':
+        start_bs += b'LEVC'
+        id_bs = b'CNAM'
+    else:
+        start_bs += b'LEVI'
+        id_bs = b'INAM'
+
+    headerflags_bs = packLong(0) + packLong(0)
+    name_bs = b'NAME' + packLong(len(rec['name'])) + packString(rec['name'])
+    calcfrom_bs = b'DATA' + packLong(4) + packLong(rec['calcfrom'])
+    chance_bs = b'NNAM' + packLong(1) + packShort(rec['chancenone'])
+
+    subrec_bs = b'INDX' + packLong(4) + packLong(len(rec['items']))
+    for (lvl, lid) in rec['items']:
+        subrec_bs += id_bs + packLong(len(lid)) + packString(lid)
+        subrec_bs += b'INTV' + packLong(2) + packInt(lvl)
+
+    reclen = len(headerflags_bs) + len(calcfrom_bs) + len(chance_bs) + len(subrec_bs)
+    reclen_bs = packLong(reclen)
+
+    return start_bs + reclen_bs + headerflags_bs + calcfrom_bs + chance_bs + subrec_bs
+
+
 def ppSubRecord(sr):
     if sr['type'] in ['NAME', 'INAM', 'CNAM']:
         print("  %s, length %d, value '%s'" % (sr['type'], sr['length'], parseString(sr['data'])))
@@ -126,7 +179,7 @@ def ppRecord(rec):
     for sr in rec['subrecords']:
         ppSubRecord(sr)
 
-    
+
 def ppLEV(rec):
     if rec['type'] == 'LEVC':
         print("Creature list '%s' from '%s':" % (rec['name'], rec['file']))
@@ -228,9 +281,6 @@ def writeTES3():
 
 
 
-def writeList():
-    pass
-
 
 
 
@@ -291,7 +341,8 @@ def main(cfg):
     plugins = set(pluginlist)
     moddesc = "Merged leveled lists from: %s" % ', '.join(plugins)
 
-
+    with open('firstmod.omwaddon', 'wb') as f:
+        f.write(packLEV(levi[0]))
 
 
 
