@@ -17,18 +17,8 @@ def packLong(i):
     # little-endian, "standard" 4-bytes (old 32-bit systems)
     return pack('<l', i)
 
-def packShort(s):
-    return pack('<b', s)
-
-def packInt(i):
-    return pack('<h', i)
-
-def packFloat(f):
-    return pack('<f', f)
-
 def packString(s):
-    # make sure to null-terminate
-    return bytes(s, 'ascii') + bytes(1)
+    return bytes(s, 'ascii')
 
 def parseString(ba):
     i = ba.find(0)
@@ -129,41 +119,67 @@ def getRecords(filename, rectype):
     return ( r for r in readRecords(filename) if r['type'] == rectype )
 
 
-def packStringSubRecord(sr):
-    t = packString(sr['type'])
-    if sr['type'] in ['NAME', 'INAM', 'CNAM']:
-        l = packLong(len(sr['data']))
-        return t + l + packString(sr['data'])
-    else:
-        print("Passed a non-string subrecord. I'm confused.")
-        ppSubRecord(sr)
-        sys.exit(0)
+def packStringSubRecord(lbl, strval):
+    str_bs = packString(strval) + bytes(1)
+    l = packLong(len(str_bs))
+    return packString(lbl) + l + str_bs
 
+def packIntSubRecord(lbl, num, numsize=4):
+    # This is interesting. The 'pack' function from struct works fine like this:
+    #
+    # >>> pack('<l', 200)
+    # b'\xc8\x00\x00\x00'
+    #
+    # but breaks if you make that format string a non-literal:
+    #
+    # >>> fs = '<l'
+    # >>> pack(fs, 200)
+    # Traceback (most recent call last):
+    #   File "<stdin>", line 1, in <module>
+    # struct.error: repeat count given without format specifier
+    #
+    # This is as of Python 3.5.2
+
+    num_bs = b''
+    if numsize == 4:
+        # "standard" 4-byte longs, little-endian
+        num_bs = pack('<l', num)
+    elif numsize == 2:
+        num_bs = pack('<h', num)
+    elif numsize == 1:
+        # don't think endian-ness matters for bytes, but consistency
+        num_bs = pack('<b', num)
+
+    return packString(lbl) + packLong(numsize) + num_bs
+
+def packFloatSubRecord(lbl, num):
+    return packString(lbl) + pack('<f', num)
 
 def packLEV(rec):
     start_bs = b''
     id_bs = b''
     if rec['type'] == 'LEVC':
         start_bs += b'LEVC'
-        id_bs = b'CNAM'
+        id_bs = 'CNAM'
     else:
         start_bs += b'LEVI'
-        id_bs = b'INAM'
+        id_bs = 'INAM'
 
-    headerflags_bs = packLong(0) + packLong(0)
-    name_bs = b'NAME' + packLong(len(rec['name'])) + packString(rec['name'])
-    calcfrom_bs = b'DATA' + packLong(4) + packLong(rec['calcfrom'])
-    chance_bs = b'NNAM' + packLong(1) + packShort(rec['chancenone'])
+    headerflags_bs = bytes(8)
+    name_bs = packStringSubRecord('NAME', rec['name'])
+    calcfrom_bs = packIntSubRecord('DATA', rec['calcfrom'])
+    chance_bs = packIntSubRecord('NNAM', rec['chancenone'], 1)
 
-    subrec_bs = b'INDX' + packLong(4) + packLong(len(rec['items']))
+    subrec_bs = packIntSubRecord('INDX', len(rec['items']))
     for (lvl, lid) in rec['items']:
-        subrec_bs += id_bs + packLong(len(lid)) + packString(lid)
-        subrec_bs += b'INTV' + packLong(2) + packInt(lvl)
+        subrec_bs += packStringSubRecord(id_bs, lid)
+        subrec_bs += packIntSubRecord('INTV', lvl, 2)
 
-    reclen = len(headerflags_bs) + len(calcfrom_bs) + len(chance_bs) + len(subrec_bs)
+    reclen = len(name_bs) + len(calcfrom_bs) + len(chance_bs) + len(subrec_bs)
     reclen_bs = packLong(reclen)
 
-    return start_bs + reclen_bs + headerflags_bs + calcfrom_bs + chance_bs + subrec_bs
+    return start_bs + reclen_bs + headerflags_bs + \
+        name_bs + calcfrom_bs + chance_bs + subrec_bs
 
 
 def ppSubRecord(sr):
@@ -281,10 +297,7 @@ def writeTES3():
 
 
 
-
-
-
-def main(cfg):
+def readCfg(cfg):
     # first, open the file and pull all 'data' and 'content' lines, in order
 
     data_dirs = []
@@ -314,6 +327,24 @@ def main(cfg):
 
     print("Config file parsed...")
 
+    return fp_mods
+
+def dumplists(cfg):
+    llists = []
+    fp_mods = readCfg(cfg)
+    for f in fp_mods:
+        llists += [ parseLEV(f, x) for x in getRecords(f, 'LEVI') ]
+
+    for f in fp_mods:
+        llists += [ parseLEV(f, x) for x in getRecords(f, 'LEVC') ]
+
+    for l in llists:
+        ppLEV(l)
+
+
+def main(cfg):
+    fp_mods = readCfg(cfg)
+
     # okay, now we have the full list of esp, esm, and omwaddon
     # files, so let's read them and generate some merged lists
 
@@ -329,21 +360,24 @@ def main(cfg):
 
     ilist = []
     for f in fp_mods:
+        print("Pulling item lists from '%s'" % f)
         ilist += [ parseLEV(f, x) for x in getRecords(f, 'LEVI') ]
 
     levi = mergeAllLists(ilist)
 
     modauthor = 'OpenMW Leveled List Fixer'
+    llist_bc = b''
     pluginlist = []
     for x in levi + levc:
         ppLEV(x)
+        llist_bc += packLEV(x)
         pluginlist += x['files']
     plugins = set(pluginlist)
     moddesc = "Merged leveled lists from: %s" % ', '.join(plugins)
 
-    with open('firstmod.omwaddon', 'wb') as f:
-        f.write(packLEV(levi[0]))
 
+    with open('firstmod.omwaddon', 'wb') as f:
+        f.write(llist_bc)
 
 
 if __name__ == '__main__':
@@ -353,6 +387,9 @@ if __name__ == '__main__':
                         action = 'store', required = False,
                         help = 'Conf file to use. Optional. By default, attempts to use the default conf file location.')
 
+    parser.add_argument('-d', '--dumplists', default = False,
+                        action = 'store_true', required = False,
+                        help = 'Instead of generating merged lists, dump all leveled lists in the conf mods. Used for debugging')
 
     p = parser.parse_args()
 
@@ -360,9 +397,9 @@ if __name__ == '__main__':
     if p.conffile:
         confFile = p.conffile
     else:
-        p = sys.platform
-        if p in configPaths:
-            baseDir = os.path.expanduser(configPaths[p])
+        pl = sys.platform
+        if pl in configPaths:
+            baseDir = os.path.expanduser(configPaths[pl])
             confFile = os.path.join(baseDir, configFilename)
         else:
             print("Sorry, I don't recognize the platform '%s'. You can try specifying the conf file using the '-c' flag." % p)
@@ -372,7 +409,10 @@ if __name__ == '__main__':
         print("Sorry, the conf file '%s' doesn't seem to exist." % confFile)
         sys.exit(1)
 
-    main(confFile)
+    if p.dumplists:
+        dumplists(confFile)
+    else:
+        main(confFile)
 
 
 
