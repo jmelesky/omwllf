@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from struct import pack, unpack
+from datetime import date
 import os.path
 import argparse
 import sys
@@ -8,10 +9,16 @@ import re
 
 
 configFilename = 'openmw.cfg'
-configPaths = { 'linux': '~/.config/openmw',
+configPaths = { 'linux':   '~/.config/openmw',
                 'freebsd': '~/.config/openmw',
-                'darwin': '~/Library/Preferences/openmw',
-                'win32': '~/Documents/my games/openmw' }
+                'darwin':  '~/Library/Preferences/openmw',
+                'win32':   '~\Documents\my games\openmw' }
+
+modPaths = { 'linux':   '~/.local/share/openmw/data',
+             'freebsd': '~/.local/share/openmw/data',
+             'darwin':  '~/Library/Application Support/openmw/data',
+             'win32':   '~\Documents\my games\openmw\data' }
+             
 
 def packLong(i):
     # little-endian, "standard" 4-bytes (old 32-bit systems)
@@ -370,7 +377,7 @@ def dumplists(cfg):
         ppLEV(l)
 
 
-def main(cfg):
+def main(cfg, outmod):
     fp_mods = readCfg(cfg)
 
     # first thing, we need a list of master files required by
@@ -418,7 +425,7 @@ def main(cfg):
     plugins = set(pluginlist)
     moddesc = "Merged leveled lists from: %s" % ', '.join(plugins)
 
-    with open('firstmod.omwaddon', 'wb') as f:
+    with open(outmod, 'wb') as f:
         f.write(packTES3(moddesc, len(levi + levc), master_list))
         f.write(llist_bc)
 
@@ -437,12 +444,14 @@ if __name__ == '__main__':
     p = parser.parse_args()
 
     confFile = ''
+    baseModDir = ''
     if p.conffile:
         confFile = p.conffile
     else:
         pl = sys.platform
         if pl in configPaths:
             baseDir = os.path.expanduser(configPaths[pl])
+            baseModDir = os.path.expanduser(modPaths[pl])
             confFile = os.path.join(baseDir, configFilename)
         else:
             print("Sorry, I don't recognize the platform '%s'. You can try specifying the conf file using the '-c' flag." % p)
@@ -452,10 +461,13 @@ if __name__ == '__main__':
         print("Sorry, the conf file '%s' doesn't seem to exist." % confFile)
         sys.exit(1)
 
+    modName = 'OMWLLF Mod - %s.omwaddon' % date.today().strftime('%Y-%m-%d')
+    modFullPath = os.path.join(baseModDir, modName)
+
     if p.dumplists:
         dumplists(confFile)
     else:
-        main(confFile)
+        main(confFile, modFullPath)
 
 
 
