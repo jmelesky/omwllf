@@ -2,6 +2,7 @@
 
 from struct import pack, unpack
 from datetime import date
+from pathlib import Path
 import os.path
 import argparse
 import sys
@@ -377,7 +378,7 @@ def dumplists(cfg):
         ppLEV(l)
 
 
-def main(cfg, outmod):
+def main(cfg, outmoddir, outmod):
     fp_mods = readCfg(cfg)
 
     # first thing, we need a list of master files required by
@@ -424,6 +425,10 @@ def main(cfg, outmod):
         pluginlist += x['files']
     plugins = set(pluginlist)
     moddesc = "Merged leveled lists from: %s" % ', '.join(plugins)
+
+    if not os.path.exists(outmoddir):
+        p = Path(outmoddir)
+        p.mkdir(parents=True)
 
     with open(outmod, 'wb') as f:
         f.write(packTES3(moddesc, len(levi + levc), master_list))
@@ -477,6 +482,6 @@ if __name__ == '__main__':
     if p.dumplists:
         dumplists(confFile)
     else:
-        main(confFile, modFullPath)
+        main(confFile, baseModDir, modFullPath)
 
 
