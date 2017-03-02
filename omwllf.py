@@ -20,6 +20,14 @@ def packLong(i):
 def packString(s):
     return bytes(s, 'ascii')
 
+def packPaddedString(s, l):
+    bs = bytes(s, 'ascii')
+    if len(bs) > l:
+        # still need to null-terminate
+        return bs[:(l-1)] + bytes(1)
+    else:
+        return bs + bytes(l - len(bs))
+
 def parseString(ba):
     i = ba.find(0)
     return ba[:i].decode()
@@ -149,11 +157,10 @@ def packIntSubRecord(lbl, num, numsize=4):
     elif numsize == 1:
         # don't think endian-ness matters for bytes, but consistency
         num_bs = pack('<b', num)
+    elif numsize == 8:
+        num_bs = pack('<q', num)
 
     return packString(lbl) + packLong(numsize) + num_bs
-
-def packFloatSubRecord(lbl, num):
-    return packString(lbl) + pack('<f', num)
 
 def packLEV(rec):
     start_bs = b''
@@ -181,6 +188,33 @@ def packLEV(rec):
     return start_bs + reclen_bs + headerflags_bs + \
         name_bs + calcfrom_bs + chance_bs + subrec_bs
 
+def packTES3(desc, numrecs, masters):
+    start_bs = b'TES3'
+    headerflags_bs = bytes(8)
+
+    hedr_bs = b'HEDR' + packLong(300)
+    version_bs = pack('<f', 1.0)
+
+    # .esp == 0, .esm == 1, .ess == 32
+    # suprisingly, .omwaddon == 0, also -- figured it would have its own
+    ftype_bs = bytes(4)
+
+    author_bs = packPaddedString('omwllf, copyright 2017, jmelesky', 32)
+    desc_bs = packPaddedString(desc, 256)
+    numrecs_bs = packLong(numrecs)
+
+    masters_bs = b''
+    for (m, s) in masters:
+        masters_bs += packStringSubRecord('MAST', m)
+        masters_bs += packIntSubRecord('DATA', s, 8)
+
+    reclen = len(hedr_bs) + len(version_bs) + len(ftype_bs) + len(author_bs) +\
+             len(desc_bs) + len(numrecs_bs) + len(masters_bs)
+    reclen_bs = packLong(reclen)
+
+    return start_bs + reclen_bs + headerflags_bs + \
+        hedr_bs + version_bs + ftype_bs + author_bs + \
+        desc_bs + numrecs_bs + masters_bs
 
 def ppSubRecord(sr):
     if sr['type'] in ['NAME', 'INAM', 'CNAM']:
@@ -288,15 +322,6 @@ def mergeAllLists(alllists):
     return merged
 
 
-def writeTES3():
-    header = bytearray(16)
-    header[0:4] = b'TES3'
-
-    hedr = bytearray(308)
-    hedr[0:4] = b'HEDR'
-
-
-
 def readCfg(cfg):
     # first, open the file and pull all 'data' and 'content' lines, in order
 
@@ -333,6 +358,9 @@ def dumplists(cfg):
     llists = []
     fp_mods = readCfg(cfg)
     for f in fp_mods:
+        [ ppTES3(parseTES3(x)) for x in getRecords(f, 'TES3') ]
+
+    for f in fp_mods:
         llists += [ parseLEV(f, x) for x in getRecords(f, 'LEVI') ]
 
     for f in fp_mods:
@@ -345,8 +373,24 @@ def dumplists(cfg):
 def main(cfg):
     fp_mods = readCfg(cfg)
 
+    # first thing, we need a list of master files required by
+    # all our mods
+
+    tes3list = []
+    for f in fp_mods:
+        print("Pulling master file info from '%s'" % f)
+        tes3list += [ parseTES3(x) for x in getRecords(f, 'TES3') ]
+
+    masters = {}
+    for t in tes3list:
+        for m in t['masters']:
+            masters[m[0]] = m[1]
+
+    master_list = [ (k,v) for (k,v) in masters.items() ]
+
     # okay, now we have the full list of esp, esm, and omwaddon
-    # files, so let's read them and generate some merged lists
+    # files, so let's read them, pull out all the leveled lists,
+    # and generate some merged ones
 
     levc = [] # creature lists
     levi = [] # item lists
@@ -365,18 +409,17 @@ def main(cfg):
 
     levi = mergeAllLists(ilist)
 
-    modauthor = 'OpenMW Leveled List Fixer'
     llist_bc = b''
     pluginlist = []
     for x in levi + levc:
-        ppLEV(x)
+        # ppLEV(x)
         llist_bc += packLEV(x)
         pluginlist += x['files']
     plugins = set(pluginlist)
     moddesc = "Merged leveled lists from: %s" % ', '.join(plugins)
 
-
     with open('firstmod.omwaddon', 'wb') as f:
+        f.write(packTES3(moddesc, len(levi + levc), master_list))
         f.write(llist_bc)
 
 
