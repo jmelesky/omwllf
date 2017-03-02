@@ -429,6 +429,16 @@ def main(cfg, outmod):
         f.write(packTES3(moddesc, len(levi + levc), master_list))
         f.write(llist_bc)
 
+    modShortName = os.path.basename(outmod)
+    print("\n\n****************************************")
+    print(" Great! I think that worked. When you next start the OpenMW Launcher, look for a module named %s. Make sure of the following things:" % modShortName)
+    print("    1. %s is at the bottom of the list. Drag it to the bottom if it's not. It needs to load last." % modShortName)
+    print("    2. %s is checked (enabled)" % modShortName)
+    print("    3. Any other OMWLLF mods are *un*checked. Loading them might not cause problems, but probably will")
+    print("\n")
+    print(" Then, go ahead and start the game! Your leveled lists should include adjustmemts from all relevants enabled mods")
+    print("\n")
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -468,6 +478,5 @@ if __name__ == '__main__':
         dumplists(confFile)
     else:
         main(confFile, modFullPath)
-
 
 
