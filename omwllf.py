@@ -38,7 +38,7 @@ def packPaddedString(s, l):
 
 def parseString(ba):
     i = ba.find(0)
-    return ba[:i].decode()
+    return ba[:i].decode(encoding='ascii', errors='ignore')
 
 def parseNum(ba):
     return int.from_bytes(ba, 'little')
