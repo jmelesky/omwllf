@@ -18,6 +18,10 @@ Open the Launcher, drag the new module to the bottom (it should be loaded last),
 
 Finally, start OpenMW with your new, merged leveled lists.
 
+## HELP!
+
+Are you having a problem? I can only fix it if I know about it. You can [file an issue](https://github.com/jmelesky/omwllf/issues) on the github project. I'm also trying to be available on the [OpenMW General Discussion forum](https://forum.openmw.org/viewforum.php?f=2), and sometimes on the [#openmw irc channel](https://webchat.freenode.net/?channels=openmw&uio=OT10cnVlde).
+
 ## Thanks
 
   * Resources for understanding MW file formats:
