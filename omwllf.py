@@ -46,7 +46,7 @@ def parseNum(ba):
 def parseFloat(ba):
     return unpack('f', ba)[0]
 
-def parseLEV(f, rec):
+def parseLEV(rec):
     levrec = {}
     sr = rec['subrecords']
 
@@ -54,7 +54,7 @@ def parseLEV(f, rec):
     levrec['name'] = parseString(sr[0]['data'])
     levrec['calcfrom'] = parseNum(sr[1]['data'])
     levrec['chancenone'] = parseNum(sr[2]['data'])
-    levrec['file'] = os.path.basename(f)
+    levrec['file'] = os.path.basename(rec['fullpath'])
 
     # Apparently, you can have LEV records that end before
     # the INDX subrecord. Found those in Tamriel_Data.esm
@@ -120,6 +120,8 @@ def readRecords(filename):
         record['type'] = header['type']
         record['length'] = header['length']
         record['subrecords'] = []
+        # stash the filename here (a bit hacky, but useful)
+        record['fullpath'] = filename
 
         remains = fh.read(header['length'])
 
@@ -130,10 +132,18 @@ def readRecords(filename):
 
         yield record
 
-
-def getRecords(filename, rectype):
+def oldGetRecords(filename, rectype):
     return ( r for r in readRecords(filename) if r['type'] == rectype )
 
+def getRecords(filename, rectypes):
+    numtypes = len(rectypes)
+    retval = [ [] for x in range(numtypes) ]
+    for r in readRecords(filename):
+        if r['type'] in rectypes:
+            for i in range(numtypes):
+                if r['type'] == rectypes[i]:
+                    retval[i].append(r)
+    return retval
 
 def packStringSubRecord(lbl, strval):
     str_bs = packString(strval) + bytes(1)
@@ -365,6 +375,7 @@ def readCfg(cfg):
 def dumplists(cfg):
     llists = []
     fp_mods = readCfg(cfg)
+
     for f in fp_mods:
         [ ppTES3(parseTES3(x)) for x in getRecords(f, 'TES3') ]
 
@@ -381,13 +392,20 @@ def dumplists(cfg):
 def main(cfg, outmoddir, outmod):
     fp_mods = readCfg(cfg)
 
-    # first thing, we need a list of master files required by
-    # all our mods
+    # first, let's grab the "raw" records from the files
 
-    tes3list = []
+    (rtes3, rlevi, rlevc) = ([], [], [])
     for f in fp_mods:
-        print("Pulling master file info from '%s'" % f)
-        tes3list += [ parseTES3(x) for x in getRecords(f, 'TES3') ]
+        print("Parsing '%s' for relevant records" % f)
+        (rtes3t, rlevit, rlevct) = getRecords(f, ('TES3', 'LEVI', 'LEVC'))
+        rtes3 += rtes3t
+        rlevi += rlevit
+        rlevc += rlevct
+
+    # next, parse the tes3 records so we can get a list
+    # of master files required by all our mods
+
+    tes3list = [ parseTES3(x) for x in rtes3 ]
 
     masters = {}
     for t in tes3list:
@@ -396,26 +414,23 @@ def main(cfg, outmoddir, outmod):
 
     master_list = [ (k,v) for (k,v) in masters.items() ]
 
-    # okay, now we have the full list of esp, esm, and omwaddon
-    # files, so let's read them, pull out all the leveled lists,
-    # and generate some merged ones
+    # now, let's parse the levi and levc records into
+    # mergeable lists, then merge them
 
-    levc = [] # creature lists
-    levi = [] # item lists
+    # creature lists
+    clist = [ parseLEV(x) for x in rlevc ]
+    levc = mergeAllLists(clist)
 
-    ilist = []
-    for f in fp_mods:
-        print("Pulling creature lists from '%s'" % f)
-        ilist += [ parseLEV(f, x) for x in getRecords(f, 'LEVC') ]
-
-    levc = mergeAllLists(ilist)
-
-    ilist = []
-    for f in fp_mods:
-        print("Pulling item lists from '%s'" % f)
-        ilist += [ parseLEV(f, x) for x in getRecords(f, 'LEVI') ]
-
+    # item lists
+    ilist = [ parseLEV(x) for x in rlevi ]
     levi = mergeAllLists(ilist)
+
+
+    # now build the binary representation of
+    # the merged lists.
+    # along the way, build up the module
+    # description for the new merged mod, out
+    # of the names of mods that had lists
 
     llist_bc = b''
     pluginlist = []
@@ -426,6 +441,10 @@ def main(cfg, outmoddir, outmod):
     plugins = set(pluginlist)
     moddesc = "Merged leveled lists from: %s" % ', '.join(plugins)
 
+    # finally, build the binary form of the
+    # TES3 record, and write the whole thing
+    # out to disk
+
     if not os.path.exists(outmoddir):
         p = Path(outmoddir)
         p.mkdir(parents=True)
@@ -433,6 +452,8 @@ def main(cfg, outmoddir, outmod):
     with open(outmod, 'wb') as f:
         f.write(packTES3(moddesc, len(levi + levc), master_list))
         f.write(llist_bc)
+
+    # And give some hopefully-useful instructions
 
     modShortName = os.path.basename(outmod)
     print("\n\n****************************************")
