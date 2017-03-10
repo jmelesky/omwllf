@@ -377,13 +377,13 @@ def dumplists(cfg):
     fp_mods = readCfg(cfg)
 
     for f in fp_mods:
-        [ ppTES3(parseTES3(x)) for x in getRecords(f, 'TES3') ]
+        [ ppTES3(parseTES3(x)) for x in oldGetRecords(f, 'TES3') ]
 
     for f in fp_mods:
-        llists += [ parseLEV(f, x) for x in getRecords(f, 'LEVI') ]
+        llists += [ parseLEV(x) for x in oldGetRecords(f, 'LEVI') ]
 
     for f in fp_mods:
-        llists += [ parseLEV(f, x) for x in getRecords(f, 'LEVC') ]
+        llists += [ parseLEV(x) for x in oldGetRecords(f, 'LEVC') ]
 
     for l in llists:
         ppLEV(l)
