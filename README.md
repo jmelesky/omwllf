@@ -4,7 +4,7 @@ This is a utility written specifically for [OpenMW](http://openmw.org/) users wh
 
 ## How to use this
 
-First, make sure you have python3 installed on your system and reachable.
+First, make sure you have python (version 3.3 or higher) installed on your system and reachable.
 
 Second, make sure the script itself (`omwllf.py`) is downloaded and available. You can download it from github at https://github.com/jmelesky/omwllf
 
