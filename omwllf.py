@@ -12,13 +12,11 @@ import re
 configFilename = 'openmw.cfg'
 configPaths = { 'linux':   '~/.config/openmw',
                 'freebsd': '~/.config/openmw',
-                'darwin':  '~/Library/Preferences/openmw',
-                'win32':   '~\Documents\my games\openmw' }
+                'darwin':  '~/Library/Preferences/openmw' }
 
 modPaths = { 'linux':   '~/.local/share/openmw/data',
              'freebsd': '~/.local/share/openmw/data',
-             'darwin':  '~/Library/Application Support/openmw/data',
-             'win32':   '~\Documents\my games\openmw\data' }
+             'darwin':  '~/Library/Application Support/openmw/data' }
              
 
 def packLong(i):
@@ -489,6 +487,29 @@ if __name__ == '__main__':
             baseDir = os.path.expanduser(configPaths[pl])
             baseModDir = os.path.expanduser(modPaths[pl])
             confFile = os.path.join(baseDir, configFilename)
+        elif pl == 'win32':
+            # this is ugly. first, imports that only work properly on windows
+            from ctypes import *
+            import ctypes.wintypes
+
+            buf = create_unicode_buffer(ctypes.wintypes.MAX_PATH)
+
+            # opaque arguments. they are, roughly, for our purposes:
+            #   - an indicator of folder owner (0 == current user)
+            #   - an id for the type of folder (5 == 'My Documents')
+            #   - an indicator for user to call from (0 same as above)
+            #   - a bunch of flags for different things
+            #     (if you want, for example, to get the default path
+            #      instead of the actual path, or whatnot)
+            #     0 == current stuff
+            #   - the variable to hold the return value
+
+            windll.shell32.SHGetFolderPathW(0, 5, 0, 0, buf)
+
+            # pull out the return value and construct the rest
+            baseDir = os.path.join(buf.value, 'My Games', 'OpenMW')
+            baseModDir = os.path.join(baseDir, 'data')
+            confFile = os.path.join(baseDir, configFilename)
         else:
             print("Sorry, I don't recognize the platform '%s'. You can try specifying the conf file using the '-c' flag." % p)
             sys.exit(1)
@@ -504,5 +525,15 @@ if __name__ == '__main__':
         dumplists(confFile)
     else:
         main(confFile, baseModDir, modFullPath)
+
+
+
+
+
+# regarding the windows path detection:
+#
+# "SHGetFolderPath" is deprecated in favor of "SHGetKnownFolderPath", but
+# >>> windll.shell32.SHGetKnownFolderPath('{FDD39AD0-238F-46AF-ADB4-6C85480369C7}', 0, 0, buf2)
+# -2147024894
 
 
