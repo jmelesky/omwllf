@@ -471,21 +471,25 @@ if __name__ == '__main__':
                         action = 'store', required = False,
                         help = 'Conf file to use. Optional. By default, attempts to use the default conf file location.')
 
+    parser.add_argument('-m', '--moddir', type = str, default = None,
+                        action = 'store', required = False,
+                        help = 'Directory to store the new module in. By default, attempts to use the default work directory for OpenMW-CS')
+
     parser.add_argument('-d', '--dumplists', default = False,
                         action = 'store_true', required = False,
                         help = 'Instead of generating merged lists, dump all leveled lists in the conf mods. Used for debugging')
 
     p = parser.parse_args()
 
+
+    # determine the conf file to use
     confFile = ''
-    baseModDir = ''
     if p.conffile:
         confFile = p.conffile
     else:
         pl = sys.platform
         if pl in configPaths:
             baseDir = os.path.expanduser(configPaths[pl])
-            baseModDir = os.path.expanduser(modPaths[pl])
             confFile = os.path.join(baseDir, configFilename)
         elif pl == 'win32':
             # this is ugly. first, imports that only work properly on windows
@@ -508,11 +512,38 @@ if __name__ == '__main__':
 
             # pull out the return value and construct the rest
             baseDir = os.path.join(buf.value, 'My Games', 'OpenMW')
-            baseModDir = os.path.join(baseDir, 'data')
             confFile = os.path.join(baseDir, configFilename)
         else:
             print("Sorry, I don't recognize the platform '%s'. You can try specifying the conf file using the '-c' flag." % p)
             sys.exit(1)
+
+    baseModDir = ''
+    if p.moddir:
+        baseModDir = p.moddir
+    else:
+        pl = sys.platform
+        if pl in configPaths:
+            baseModDir = os.path.expanduser(modPaths[pl])
+        elif pl == 'win32':
+            # this is ugly in exactly the same ways as above.
+            # see there for more information
+
+            from ctypes import *
+            import ctypes.wintypes
+
+            buf = create_unicode_buffer(ctypes.wintypes.MAX_PATH)
+
+            windll.shell32.SHGetFolderPathW(0, 5, 0, 0, buf)
+
+            baseDir = os.path.join(buf.value, 'My Games', 'OpenMW')
+            baseModDir = os.path.join(baseDir, 'data')
+        else:
+            print("Sorry, I don't recognize the platform '%s'. You can try specifying the conf file using the '-c' flag." % p)
+            sys.exit(1)
+
+
+
+
 
     if not os.path.exists(confFile):
         print("Sorry, the conf file '%s' doesn't seem to exist." % confFile)
