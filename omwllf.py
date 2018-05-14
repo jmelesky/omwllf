@@ -471,11 +471,15 @@ if __name__ == '__main__':
                         action = 'store', required = False,
                         help = 'Conf file to use. Optional. By default, attempts to use the default conf file location.')
 
-    parser.add_argument('-m', '--moddir', type = str, default = None,
+    parser.add_argument('-d', '--moddir', type = str, default = None,
                         action = 'store', required = False,
                         help = 'Directory to store the new module in. By default, attempts to use the default work directory for OpenMW-CS')
 
-    parser.add_argument('-d', '--dumplists', default = False,
+    parser.add_argument('-m', '--modname', type = str, default = None,
+                        action = 'store', required = False,
+                        help = 'Name of the new module to create. By default, this is "OMWLLF Mod - <today\'s date>.omwaddon.')
+
+    parser.add_argument('--dumplists', default = False,
                         action = 'store_true', required = False,
                         help = 'Instead of generating merged lists, dump all leveled lists in the conf mods. Used for debugging')
 
@@ -542,14 +546,16 @@ if __name__ == '__main__':
             sys.exit(1)
 
 
-
-
-
     if not os.path.exists(confFile):
         print("Sorry, the conf file '%s' doesn't seem to exist." % confFile)
         sys.exit(1)
 
-    modName = 'OMWLLF Mod - %s.omwaddon' % date.today().strftime('%Y-%m-%d')
+    modName = ''
+    if p.modname:
+        modName = p.modname
+    else:
+        modName = 'OMWLLF Mod - %s.omwaddon' % date.today().strftime('%Y-%m-%d')
+
     modFullPath = os.path.join(baseModDir, modName)
 
     if p.dumplists:
