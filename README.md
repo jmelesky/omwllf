@@ -1,4 +1,4 @@
-# OMWLLF - OpenMW Leveled List Fixer
+# OMWLLF - OpenMW Leveled List Fixer - v1.0
 
 This is a utility written specifically for [OpenMW](http://openmw.org/) users who want to use lots of mods, and don't want to wrestle with using MW Classic tools to merge their leveled lists.
 
@@ -17,6 +17,18 @@ Then, run `omwllf.py` from a command line (Terminal in OS X, Command Prompt in W
 Open the Launcher, drag the new module to the bottom (it should be loaded last), and enable it.
 
 Finally, start OpenMW with your new, merged leveled lists.
+
+## Advanced usage
+
+Having everything automatic is darn handy, but some of us have multiple config files and setups. OpenMW can handle that, so `omwllf` should be able to, too.
+
+There are some useful command-line arguments:
+
+  - `-c` (or `--configfile`), which allows you to specify a specific config file to use
+  - `-d` (or `--moddir`), where you can set the directory in which to put the new mod
+  - `-m` (or `--modname`), which lets you set the name of the new mod (I like the default of `OMW Mod - <today's date>.omwaddon`, but to each their own)
+
+All of those are optional (obviously), but when you need them, you need them.
 
 ## HELP!
 
