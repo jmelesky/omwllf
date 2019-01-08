@@ -104,7 +104,8 @@ def readSubRecord(ba):
     sr['length'] = int.from_bytes(ba[4:8], 'little')
     endbyte = 8 + sr['length']
     sr['data'] = ba[8:endbyte]
-    return (sr, ba[endbyte:])
+    del ba[:endbyte]
+    return sr
 
 def readRecords(filename):
     fh = open(filename, 'rb')
@@ -121,12 +122,11 @@ def readRecords(filename):
         # stash the filename here (a bit hacky, but useful)
         record['fullpath'] = filename
 
-        remains = fh.read(header['length'])
+        remains = bytearray(fh.read(header['length']))
 
         while len(remains) > 0:
-            (subrecord, restofbytes) = readSubRecord(remains)
+            subrecord = readSubRecord(remains)
             record['subrecords'].append(subrecord)
-            remains = restofbytes
 
         yield record
 
