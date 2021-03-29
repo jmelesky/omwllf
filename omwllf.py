@@ -460,7 +460,7 @@ def main(cfg, outmoddir, outmod):
     print("    2. %s is checked (enabled)" % modShortName)
     print("    3. Any other OMWLLF mods are *un*checked. Loading them might not cause problems, but probably will")
     print("\n")
-    print(" Then, go ahead and start the game! Your leveled lists should include adjustmemts from all relevants enabled mods")
+    print(" Then, go ahead and start the game! Your leveled lists should include adjustments from all relevant enabled mods")
     print("\n")
 
 
