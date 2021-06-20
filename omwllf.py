@@ -44,7 +44,7 @@ def parseNum(ba):
 def parseFloat(ba):
     return unpack('f', ba)[0]
 
-def parseLEV(rec):
+def parseLEV(rec, delevel=False):
     levrec = {}
     sr = rec['subrecords']
 
@@ -62,7 +62,10 @@ def parseLEV(rec):
 
         for i in range(0,listcount*2,2):
             itemid = parseString(sr[4+i]['data'])
-            itemlvl = parseNum(sr[5+i]['data'])
+            if delevel:
+                itemlvl = 1
+            else:
+                itemlvl = parseNum(sr[5+i]['data'])
             listitems.append((itemlvl, itemid))
 
         levrec['items'] = listitems
@@ -370,24 +373,32 @@ def readCfg(cfg):
 
     return fp_mods
 
-def dumplists(cfg):
+def dumplists(cfg, dlvdict):
     llists = []
     fp_mods = readCfg(cfg)
 
     for f in fp_mods:
         [ ppTES3(parseTES3(x)) for x in oldGetRecords(f, 'TES3') ]
 
-    for f in fp_mods:
-        llists += [ parseLEV(x) for x in oldGetRecords(f, 'LEVI') ]
+    if dlvdict['delevel'] or dlvdict['dlvitem']:
+        for f in fp_mods:
+            llists += [ parseLEV(x, True) for x in oldGetRecords(f, 'LEVI') ]
+    else:
+        for f in fp_mods:
+            llists += [ parseLEV(x) for x in oldGetRecords(f, 'LEVI') ]
 
-    for f in fp_mods:
-        llists += [ parseLEV(x) for x in oldGetRecords(f, 'LEVC') ]
+    if dlvdict['delevel'] or dlvdict['dlvcreat']:
+        for f in fp_mods:
+            llists += [ parseLEV(x, True) for x in oldGetRecords(f, 'LEVC') ]
+    else:
+        for f in fp_mods:
+            llists += [ parseLEV(x) for x in oldGetRecords(f, 'LEVC') ]
 
     for l in llists:
         ppLEV(l)
 
 
-def main(cfg, outmoddir, outmod):
+def main(cfg, outmoddir, outmod, dlvdict):
     fp_mods = readCfg(cfg)
 
     # first, let's grab the "raw" records from the files
@@ -416,11 +427,17 @@ def main(cfg, outmoddir, outmod):
     # mergeable lists, then merge them
 
     # creature lists
-    clist = [ parseLEV(x) for x in rlevc ]
+    if dlvdict['delevel'] or dlvdict['dlvcreat']:
+        clist = [parseLEV(x, True) for x in rlevc]
+    else:
+        clist = [ parseLEV(x) for x in rlevc ]
     levc = mergeAllLists(clist)
 
     # item lists
-    ilist = [ parseLEV(x) for x in rlevi ]
+    if dlvdict['delevel'] or dlvdict['dlvitem']:
+        ilist = [parseLEV(x, True) for x in rlevi]
+    else:
+        ilist = [ parseLEV(x) for x in rlevi ]
     levi = mergeAllLists(ilist)
 
 
@@ -473,7 +490,8 @@ if __name__ == '__main__':
 
     parser.add_argument('-d', '--moddir', type = str, default = None,
                         action = 'store', required = False,
-                        help = 'Directory to store the new module in. By default, attempts to use the default work directory for OpenMW-CS')
+                        help = 'Directory to store the new module in. By default, attempts to use the default work '
+                               'directory for OpenMW-CS')
 
     parser.add_argument('-m', '--modname', type = str, default = None,
                         action = 'store', required = False,
@@ -482,6 +500,20 @@ if __name__ == '__main__':
     parser.add_argument('--dumplists', default = False,
                         action = 'store_true', required = False,
                         help = 'Instead of generating merged lists, dump all leveled lists in the conf mods. Used for debugging')
+
+    parser.add_argument('--delevel', default = False,
+                        action = 'store_true', required = False,
+                        help = 'Delevel both creature and items lists, meaning that all entries can appear from level 1 on. This happens by overwriting the level entry for each parsed item and creature entry.')
+
+    parser.add_argument('--dlvitem', default = False,
+                        action = 'store_true', required = False,
+                        help = 'Delevel only the item lists, meaning all items can appear from level 1 on. Using this together with delevel makes this parameter redundant.')
+
+    parser.add_argument('--dlvcreat', default = False,
+                        action = 'store_true', required = False,
+                        help = 'Delevel only the creature lists, meaning all creatures can appear from level 1 on. Using this together with delevel makes this parameter redundant.')
+
+
 
     p = parser.parse_args()
 
@@ -557,11 +589,15 @@ if __name__ == '__main__':
         modName = 'OMWLLF Mod - %s.omwaddon' % date.today().strftime('%Y-%m-%d')
 
     modFullPath = os.path.join(baseModDir, modName)
-
+    dlvdict= dict(
+        delevel = p.delevel,
+        dlvcreat = p.dlvcreat,
+        dlvitem = p.dlvitem
+    )
     if p.dumplists:
-        dumplists(confFile)
+        dumplists(confFile, dlvdict)
     else:
-        main(confFile, baseModDir, modFullPath)
+        main(confFile, baseModDir, modFullPath, dlvdict)
 
 
 
