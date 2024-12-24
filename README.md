@@ -1,3 +1,10 @@
+# OMWLLF has been archived
+
+I'm so glad this tool was useful for as long as it was, but ultimately it was a stopgap until more sophisticated stuff came along. The [Delta Plugin](https://gitlab.com/bmwinger/delta-plugin) tool handles leveled list merging extremely well, and I recommend using it instead of `omwllf`. Thanks, @bmwinger, for writing an excellent tool.
+
+The readme remains below, and the `omwllf` code will remain available, but this repository is now archived and there will be no further changes. Thanks to all of you who used it!
+
+
 # OMWLLF - OpenMW Leveled List Fixer - v1.0
 
 This is a utility written specifically for [OpenMW](http://openmw.org/) users who want to use lots of mods, and don't want to wrestle with using MW Classic tools to merge their leveled lists.
